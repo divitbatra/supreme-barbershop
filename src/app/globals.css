@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 — the palette is declared once, here, and is available both as
+   utilities (bg-obsidian, text-gold) and as raw CSS variables. */
+@theme {
+  --color-obsidian: #08090b;
+  --color-charcoal: #0e0f12;
+  --color-graphite: #17191d;
+  --color-steel: #c6cad1;
+  --color-porcelain: #f7f7f5;
+  --color-gold: #c9a227;
+  --color-gold-deep: #8c6e17;
+
+  --font-display: 'Söhne Breit', 'Neue Haas Grotesk Display', ui-sans-serif, system-ui;
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui;
+
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --radius-card: 24px;
+}
+
+@layer base {
+  html {
+    /* GSAP ScrollTrigger pinning and CSS smooth-scroll fight each other. */
+    scroll-behavior: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--color-obsidian);
+    color: var(--color-porcelain);
+    font-family: var(--font-sans);
+  }
+
+  /* Prices and times must never reflow as digits change. */
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

@@ -1,0 +1,237 @@
+// Supreme Barbershop — data model
+// 7906A 104 Street NW, Edmonton, AB
+//
+// Conventions
+//  - All money is stored as integer CENTS (never Float). $21.50 -> 2150.
+//  - All instants are stored as `timestamptz`. The shop's wall-clock timezone
+//    (America/Edmonton) lives in application code, never in the column.
+//  - Durations/offsets are integer MINUTES.
+//  - Double-booking is prevented by a Postgres EXCLUSION constraint, not by
+//    application logic. See prisma/migrations/*_no_double_booking/migration.sql
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // bypasses the pooler for migrations
+}
+
+enum Role {
+  CLIENT
+  BARBER
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum NotificationKind {
+  CONFIRMATION
+  REMINDER_24H
+  RESCHEDULE
+  CANCELLATION
+}
+
+enum NotificationStatus {
+  SCHEDULED
+  SENT
+  DELIVERED
+  FAILED
+  CANCELED
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String  @id @default(cuid())
+  phone     String  @unique // E.164 only, e.g. +17805551234
+  email     String? @unique
+  firstName String
+  lastName  String?
+  role      Role    @default(CLIENT)
+
+  // CASL (Canada) + TCPA consent audit trail. Never infer consent.
+  smsOptIn    Boolean   @default(false)
+  smsOptInAt  DateTime?
+  smsOptOutAt DateTime?
+
+  notes     String?  @db.Text // staff-only notes: "fade #2, no product"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  barberProfile Barber?
+  appointments  Appointment[] @relation("ClientAppointments")
+
+  @@index([lastName, firstName])
+  @@map("users")
+}
+
+model Barber {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug        String  @unique // "max", "kristian"
+  displayName String
+  title       String? // "Master Barber"
+  bio         String? @db.Text
+  avatarUrl   String?
+  chairNumber Int?
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  services     BarberService[]
+  workingHours WorkingHours[]
+  timeOff      TimeOff[]
+  appointments Appointment[]
+
+  @@index([isActive, sortOrder])
+  @@map("barbers")
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue
+// ---------------------------------------------------------------------------
+
+model Service {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String? @db.Text
+  priceCents  Int // 3700 | 2150 | 6000
+  durationMin Int // chair time actually sold
+  bufferMin   Int     @default(5) // clean-down between clients
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  barbers      BarberService[]
+  appointments Appointment[]
+
+  @@index([isActive, sortOrder])
+  @@map("services")
+}
+
+/// Which barber performs which service, with optional per-barber overrides
+/// (a senior barber may price or pace a service differently).
+model BarberService {
+  barberId    String
+  barber      Barber  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  serviceId   String
+  service     Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  priceCents  Int?
+  durationMin Int?
+
+  @@id([barberId, serviceId])
+  @@map("barber_services")
+}
+
+// ---------------------------------------------------------------------------
+// Availability
+// ---------------------------------------------------------------------------
+
+/// Recurring weekly schedule, expressed in SHOP-LOCAL minutes from midnight.
+/// Mon–Fri 10:00–20:00 -> 600/1200, Sat 09:00–19:00 -> 540/1140,
+/// Sun 11:00–17:00 -> 660/1020.
+model WorkingHours {
+  id          String @id @default(cuid())
+  barberId    String
+  barber      Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  weekday     Int // 0 = Sunday … 6 = Saturday
+  openMinute  Int
+  closeMinute Int
+
+  @@unique([barberId, weekday, openMinute])
+  @@index([barberId, weekday])
+  @@map("working_hours")
+}
+
+/// Vacation, sick days, lunch blocks, statutory holidays.
+model TimeOff {
+  id       String   @id @default(cuid())
+  barberId String
+  barber   Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+  reason   String?
+
+  @@index([barberId, startsAt, endsAt])
+  @@map("time_off")
+}
+
+// ---------------------------------------------------------------------------
+// Bookings
+// ---------------------------------------------------------------------------
+
+model Appointment {
+  id String @id @default(cuid())
+
+  clientId  String
+  client    User    @relation("ClientAppointments", fields: [clientId], references: [id])
+  barberId  String
+  barber    Barber  @relation(fields: [barberId], references: [id])
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+
+  status AppointmentStatus @default(CONFIRMED)
+
+  // Price is SNAPSHOTTED at booking time so a later price change never
+  // rewrites history.
+  priceCents  Int
+  durationMin Int
+
+  confirmationCode String  @unique // "SB-7K2QX9" — what the client quotes
+  notes            String? @db.Text
+
+  /// Client-supplied UUID. Makes a double-tapped "Confirm" button a no-op
+  /// instead of a second chair.
+  idempotencyKey String? @unique
+
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notifications Notification[]
+
+  @@index([barberId, startsAt])
+  @@index([clientId, startsAt])
+  @@index([status, startsAt])
+  @@map("appointments")
+}
+
+/// One row per outbound message. The composite unique key is what makes
+/// "send the confirmation" safely retryable.
+model Notification {
+  id            String             @id @default(cuid())
+  appointmentId String
+  appointment   Appointment        @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  kind          NotificationKind
+  status        NotificationStatus @default(SCHEDULED)
+
+  toPhone     String
+  body        String    @db.Text
+  providerSid String? // Twilio MessageSid — needed to CANCEL a scheduled send
+  scheduledAt DateTime? @db.Timestamptz(3)
+  sentAt      DateTime? @db.Timestamptz(3)
+  error       String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([appointmentId, kind])
+  @@index([status, scheduledAt])
+  @@map("notifications")
+}
