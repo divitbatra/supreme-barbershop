@@ -42,12 +42,12 @@ export default function Confirmation({
           Chair booked
         </p>
 
-        <h2 className="text-[2rem] leading-tight tracking-[-0.035em] text-porcelain">
+        <h3 className="text-[2rem] leading-tight tracking-[-0.035em] text-porcelain">
           {formatDateLong(starts)}
           <span className="block text-gold" data-numeric>
             {formatTime(starts)}
           </span>
-        </h2>
+        </h3>
 
         <dl className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2">
           {[

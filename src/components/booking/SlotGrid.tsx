@@ -45,10 +45,14 @@ export default function SlotGrid({
 
   // The single tab stop: the chosen time if it is still open, otherwise the
   // first open time. Selection and tabbability stay in lockstep, which is what
-  // keeps the roving index correct after the grid refetches.
+  // keeps the roving index correct after the grid refetches. When nothing is
+  // open, the first taken slot takes the tab stop so a keyboard user can still
+  // reach the group and hear that the day is full.
   const tabbable = useMemo(() => {
     const chosen = cells.findIndex((c) => c.iso === value && c.state === 'open');
-    return chosen >= 0 ? chosen : (openIndexes[0] ?? -1);
+    if (chosen >= 0) return chosen;
+    if (openIndexes.length > 0) return openIndexes[0];
+    return cells.length > 0 ? 0 : -1;
   }, [cells, value, openIndexes]);
 
   const moveTo = useCallback(

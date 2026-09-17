@@ -43,9 +43,9 @@ export default function Visit() {
       </a>
 
       <div>
-        <h2 className="text-[clamp(2rem,4vw,3rem)] leading-[1.05] tracking-[-0.035em]">
+        <h3 className="text-[clamp(2rem,4vw,3rem)] leading-[1.05] tracking-[-0.035em]">
           Open seven days.
-        </h2>
+        </h3>
         <p className="mt-4 max-w-sm text-base leading-7 text-porcelain/55">
           Walk in if a chair is free. Book ahead if it matters — evenings and Saturdays go first.
         </p>

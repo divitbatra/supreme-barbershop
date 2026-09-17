@@ -40,9 +40,9 @@ export default function Page() {
         <Section id="book" index="05" eyebrow="Book">
           <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-end">
             <div>
-              <h2 className="max-w-xl text-[clamp(2rem,5vw,3.5rem)] leading-[1.02] tracking-[-0.035em]">
+              <h3 className="max-w-xl text-[clamp(2rem,5vw,3.5rem)] leading-[1.02] tracking-[-0.035em]">
                 Sixty seconds to book.
-              </h2>
+              </h3>
               <p className="mt-5 max-w-md text-base leading-7 text-porcelain/55">
                 Pick a service, a barber and a time. We text the confirmation, and again the day
                 before.
