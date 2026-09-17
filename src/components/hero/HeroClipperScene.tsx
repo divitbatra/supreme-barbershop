@@ -118,6 +118,7 @@ export default function HeroClipperScene() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_42%,rgba(201,162,39,0.13),transparent_70%)]" />
 
       <Canvas
+        aria-hidden
         className="absolute inset-0"
         frameloop={active ? 'always' : 'never'}
         dpr={[1, 2]}
