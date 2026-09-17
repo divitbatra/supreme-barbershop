@@ -16,6 +16,8 @@ A cinematic, 3D-interactive site and booking system for **Supreme Barbershop**, 
 | **Booking API** | [`src/app/api/appointments/route.ts`](src/app/api/appointments/route.ts) |
 | **SMS logic** | [`src/lib/sms.ts`](src/lib/sms.ts) |
 | Availability engine | [`src/lib/availability.ts`](src/lib/availability.ts) |
+| Landing page | [`src/app/page.tsx`](src/app/page.tsx) |
+| Four-step booking UI | [`src/app/book/page.tsx`](src/app/book/page.tsx) · [`src/components/booking/`](src/components/booking) |
 
 ## Stack
 
@@ -50,13 +52,31 @@ npm run db:seed             # services, barbers, weekly hours
 npm run dev
 ```
 
-Postgres 14+ with the `btree_gist` extension available is required.
+Postgres 14+ with the `btree_gist` extension available is required. `migrate deploy`
+runs the baseline schema first, then layers the exclusion constraint on top of it.
+
+Without a `DATABASE_URL` the site still builds and the marketing page still renders —
+`/book` is `force-dynamic`, so it degrades to a "booking is temporarily unavailable"
+panel instead of breaking the build.
+
+## Done
+
+- [x] Next.js app shell — `tsconfig.json`, `next.config.ts`, PostCSS, root layout
+- [x] Landing page — 3D hero behind a server-rendered poster, Services, Barbers, Gallery, Visit
+- [x] `/book` four-step flow UI (design in `docs/design-system.md` §5)
+- [x] Baseline Prisma migration, so `prisma migrate deploy` works against an empty database
 
 ## Still to build
 
-- [ ] `/book` four-step flow UI (design in `docs/design-system.md` §5)
 - [ ] `/a/[code]` self-serve reschedule + cancel
 - [ ] `api/twilio/inbound` — STOP/START and "C" to cancel
 - [ ] `api/cron/reminders` — nightly sweep for bookings beyond Twilio's 35-day window
 - [ ] Modelled clipper GLB (swap notes at the bottom of `ClipperModel.tsx`)
-- [ ] Barber portraits, gallery, dark-styled map embed
+- [ ] Barber portraits, gallery photography, dark-styled map embed — all three are
+      placeholders today, and the gallery lightbox ships with the real images
+- [ ] `aria-hidden` on the hero `<Canvas>` (`docs/design-system.md` §7). The hero files
+      were left byte-for-byte untouched, so this one-word fix is still outstanding
+- [ ] Automated tests. The booking flow was verified by hand against a throwaway local
+      Postgres: 201 create, 200 idempotent replay, 409 `SLOT_TAKEN` with alternatives
+      from the real exclusion constraint, 422 on refused consent and on a bad number,
+      409 `OUTSIDE_HOURS` / `TOO_SOON` / `PAST`, and 429 once the window closed
